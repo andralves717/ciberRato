@@ -79,15 +79,15 @@ class MyRob(CRobLinkAngs):
             state = 'discover'
         elif(self.measures.irSensor[3] < 1.2 and left != back):
             next_comp = 180
-            self.next_stop = (round(self.pos_calc[0]-2), self.pos_calc[1])
+            self.next_stop = (round(self.pos_calc[0]-2), round(self.pos_calc[1]))
             state = 'rotate'
         elif(self.measures.irSensor[2] < 1.2 and up != back):
             next_comp = 90
-            self.next_stop = (self.pos_calc[0], round(self.pos_calc[1]+2))
+            self.next_stop = (round(self.pos_calc[0]), round(self.pos_calc[1]+2))
             state = 'rotate'
         elif(self.measures.irSensor[1] < 1.2 and down != back):
             next_comp = -90
-            self.next_stop = (self.pos_calc[0], round(self.pos_calc[1]-2))
+            self.next_stop = (round(self.pos_calc[0]), round(self.pos_calc[1]-2))
             state = 'rotate'
 
         rot = True
@@ -98,7 +98,9 @@ class MyRob(CRobLinkAngs):
             pos_real = (self.measures.x, self.measures.y)
             self.pos = (initial_pos[0] + pos_real[0] - initial_pos_real[0], initial_pos[1] + pos_real[1] - initial_pos_real[1])
 
-
+            if self.measures.time > 4990:
+                self.finish()
+                print("\x1B[34;3m TIME FINISHED->%d \x1B[0m"%(self.measures.time))
 
             if self.measures.endLed:
                 for (x, y) in self.map_p:
@@ -108,7 +110,6 @@ class MyRob(CRobLinkAngs):
                     with open(filename, 'w') as f:
                         self.printMap(f)
                 return
-
 
                 print(self.rob_name + " exiting")
                 quit()
@@ -125,25 +126,24 @@ class MyRob(CRobLinkAngs):
                 Back sensor= %0.2f'''%(state ,self.measures.compass, self.pos[0], self.pos[1],
                 self.pos_calc[0], self.pos_calc[1], self.measures.irSensor[0], self.measures.irSensor[1],
                 self.measures.irSensor[2],self.measures.irSensor[3]))
+            
 
             if(self.measures.collision):
                 print("\x1B[1;41m COLISÃO \x1B[0m")
-                break
+                self.printMap()
+                self.finish()
 
             if state == 'stop' and self.measures.start:
                 state = stopped_state
 
             if state != 'stop' and self.measures.stop:
                 self.setMap([[' '] * (CELLCOLS*4-1) for _ in range(CELLROWS*4-1) ])
-                self.check_map(1)
+                self.check_map()
                 stopped_state = state
                 state = 'stop'
 
             if(abs(self.pos_calc[0] - round(self.pos_calc[0])) < 0.1 and abs(self.pos_calc[1] - round(self.pos_calc[1])) < 0.1):
-                self.check_map(1)
-
-            if (self.measures.irSensor[0] >= 2):
-                self.check_map(0)
+                self.check_map()
 
             if state == 'run':
                 if self.measures.visitingLed==True:
@@ -243,6 +243,8 @@ class MyRob(CRobLinkAngs):
                     self.move_forward(u)
                 else:
 
+                    self.correct_pos()
+
                     x = round(self.pos_calc[0])
                     y = round(self.pos_calc[1])
 
@@ -269,7 +271,7 @@ class MyRob(CRobLinkAngs):
                         state = 'discover'
                     elif(self.measures.irSensor[right] < 0.8 and right != back):
                         next_comp = 0
-                        self.next_stop = (round(self.pos_calc[0]+2), self.pos_calc[1])
+                        self.next_stop = (round(self.pos_calc[0]+2), round(self.pos_calc[1]))
                         state = 'rotate'
                         stopped_state = 'discover'
 
@@ -280,7 +282,7 @@ class MyRob(CRobLinkAngs):
                                 del self.unvisited_coordinates[(x, y)]
                     elif(self.measures.irSensor[left] < 0.8 and left != back):
                         next_comp = 180
-                        self.next_stop = (round(self.pos_calc[0]-2), self.pos_calc[1])
+                        self.next_stop = (round(self.pos_calc[0]-2), round(self.pos_calc[1]))
                         state = 'rotate'
                         stopped_state = 'discover'
 
@@ -291,7 +293,7 @@ class MyRob(CRobLinkAngs):
                                 del self.unvisited_coordinates[(x, y)]
                     elif(self.measures.irSensor[up] < 0.8 and up != back):
                         next_comp = 90
-                        self.next_stop = (self.pos_calc[0], round(self.pos_calc[1]+2))
+                        self.next_stop = (round(self.pos_calc[0]), round(self.pos_calc[1]+2))
                         state = 'rotate'
                         stopped_state = 'discover'
 
@@ -302,7 +304,7 @@ class MyRob(CRobLinkAngs):
                                 del self.unvisited_coordinates[(x, y)]
                     elif(self.measures.irSensor[down] < 0.8 and down != back):
                         next_comp = -90
-                        self.next_stop = (self.pos_calc[0], round(self.pos_calc[1]-2))
+                        self.next_stop = (round(self.pos_calc[0]), round(self.pos_calc[1]-2))
                         state = 'rotate'
                         stopped_state = 'discover'
 
@@ -394,6 +396,9 @@ class MyRob(CRobLinkAngs):
                     u = -u if (comp == 270 or comp == 180 or comp == -90) else u
                     self.move_forward(u)
                 else:
+
+                    self.correct_pos()
+
                     if(path_to_dest != [] and path_to_dest != None):
                         rot = True
                         self.next_stop = path_to_dest.pop()
@@ -409,57 +414,26 @@ class MyRob(CRobLinkAngs):
                     print("\x1B[34;3m TIME FINISHED->%d \x1B[0m"%(self.measures.time))
                 
                 else:
+                    if ((x, y) in self.unvisited_coordinates.keys()):
+                        self.next_stop = self.unvisited_coordinates[(x, y)].pop()
+                        if(len(self.unvisited_coordinates[(x, y)]) == 0):
+                            del self.unvisited_coordinates[(x, y)]
 
-                    self.next_stop = self.unvisited_coordinates[(x, y)].pop()
-                    if(len(self.unvisited_coordinates[(x, y)]) == 0):
-                        del self.unvisited_coordinates[(x, y)]
+                        if x - self.next_stop[0] < -1:
+                            comp = 0
+                        elif x - self.next_stop[0] > 1:
+                            comp = 180
+                        elif y - self.next_stop[1] < -1:
+                            comp = 90
+                        elif y - self.next_stop[1] > 1:
+                            comp = -90
 
-                    if x - self.next_stop[0] < -1:
-                        comp = 0
-                    elif x - self.next_stop[0] > 1:
-                        comp = 180
-                    elif y - self.next_stop[1] < -1:
-                        comp = 90
-                    elif y - self.next_stop[1] > 1:
-                        comp = -90
-
-                    if((abs(comp - self.measures.compass) > 3 and comp != 180) or (comp == 180 and (self.measures.compass < 177 or self.measures.compass > -177))):
-                        self.rotate(comp)
-                    state = 'discover'
-
-            elif state == 'move_forward':
-                if ticks >= 0:
-                    ticks = ticks - 1
-                    if(ticks < 2):
-                        fwr_lin = 0.0
+                        if((abs(comp - self.measures.compass) > 3 and comp != 180) or (comp == 180 and (self.measures.compass < 177 or self.measures.compass > -177))):
+                            self.rotate(comp)
+                        state = 'discover'              
                     else:
-                        fwr_lin = 0.1
-                    self.move_forward(fwr_lin)
-                    
-                    state = 'move_forward'
-                else:
-                    state = 'stop_tmp'
-                    # if(comp == 0):
-                    #     self.pos_calc = (self.pos_calc[0]+2, self.pos_calc[1])
-                    # elif(comp == 180):
-                    #     self.pos_calc = (self.pos_calc[0]-2, self.pos_calc[1])
-                    # elif(comp == 90):
-                    #     self.pos_calc = (self.pos_calc[0], self.pos_calc[1]+2)
-                    # elif(comp == -90 or comp == 270):
-                    #     self.pos_calc = (self.pos_calc[0], self.pos_calc[1]-2)
+                        state = 'start_search'
 
-            elif state == 'stop_tmp':
-                self.driveMotors(0, 0)
-                state = stopped_state
-                self.check_map(1)
-
-
-
-
-
-                
-
-        
     def move_forward(self, lin):
         fwd = False
 
@@ -581,7 +555,21 @@ class MyRob(CRobLinkAngs):
 
         return u
 
-    def check_map(self, c):
+    def correct_pos(self):
+        if (self.measures.irSensor[0] > 1.5):
+            print("\x1B[1;46mVou dar check à posição da frente\x1B[0m")
+            print("antes: %4.2f,%4.2f"%(self.pos_calc[0],self.pos_calc[1]))
+            if(80 < self.measures.compass < 100):
+                self.pos_calc = (self.pos_calc[0], (self.pos_calc[1]+0.5-(1/self.measures.irSensor[0])))
+            elif(-100 < self.measures.compass < -80):
+                self.pos_calc = (self.pos_calc[0], (self.pos_calc[1]-0.5+(1/self.measures.irSensor[0])))
+            elif(self.measures.compass > 170 or self.measures.compass < -170):
+                self.pos_calc = ((self.pos_calc[0]-0.5+(1/self.measures.irSensor[0])), self.pos_calc[1])
+            else:
+                self.pos_calc = ((self.pos_calc[0]+0.5-(1/self.measures.irSensor[0])), self.pos_calc[1])
+            print("depois: %4.2f,%4.2f"%(self.pos_calc[0],self.pos_calc[1]))
+
+    def check_map(self):
         front_comp = 0
         right = 0
         up = 1
@@ -609,78 +597,46 @@ class MyRob(CRobLinkAngs):
         x = round(self.pos_calc[0])
         y = round(self.pos_calc[1])
 
-        if (self.measures.irSensor[0] <= 3 and self.measures.irSensor[0] > 2):
-            print("Vou dar check à posição da frente")
-            print("antes: %4.2f,%4.2f"%(self.pos_calc[0],self.pos_calc[1]))
-            if(front_comp == 0):
-                # if(abs(round(self.pos_calc[0])-self.pos_calc[0])<=0.1):
-                self.pos_calc = (round(self.pos_calc[0]), self.pos_calc[1])
-                if( self.next_stop[0] == self.pos_calc[0]+2):
-                    self.next_stop = (self.pos_calc[0], self.next_stop[1])
-                # else:
-                    # self.pos_calc = (self.pos_calc[0]-0.5+(1/self.measures.irSensor[0]), self.pos_calc[1])
-            elif(front_comp == 180):
-                # if(abs(round(self.pos_calc[0])-self.pos_calc[0])<=0.1):
-                self.pos_calc = (round(self.pos_calc[0]), self.pos_calc[1])
-                if( self.next_stop[0] == self.pos_calc[0]-2):
-                    self.next_stop = (self.pos_calc[0], self.next_stop[1])
-                # else:
-                    # self.pos_calc = (self.pos_calc[0]+0.5-(1/self.measures.irSensor[0]), self.pos_calc[1])
-            elif(front_comp == 90):
-                # if(abs(round(self.pos_calc[1])-self.pos_calc[1])<=0.1):
-                self.pos_calc = (self.pos_calc[0], round(self.pos_calc[1]))
-                if( self.next_stop[1] == self.pos_calc[1]+2):
-                    self.next_stop = (self.next_stop[1], self.pos_calc[1])
-                # else:
-                    # self.pos_calc = (self.pos_calc[0], self.pos_calc[1]-0.5+(1/self.measures.irSensor[0]))
-            elif(front_comp == -90):
-                # if(abs(round(self.pos_calc[1])-self.pos_calc[1])<=0.1):
-                self.pos_calc = (self.pos_calc[0], round(self.pos_calc[1]))
-                if( self.next_stop[1] == self.pos_calc[1]-2):
-                    self.next_stop = (self.next_stop[1], self.pos_calc[1])
-                # else:
-                    # self.pos_calc = (self.pos_calc[0], self.pos_calc[1]+0.5-(1/self.measures.irSensor[0]))
-            print("depois: %4.2f,%4.2f"%(self.pos_calc[0],self.pos_calc[1]))
-        if (self.measures.irSensor[0] > 3):
-            print("aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa")
-            self.driveMotors(-0.02, -0.02)
+        print("Estou aqui a dar um check no (%4.2f, %4.2f)"%(x,y))
 
-        if(c == 1):
-            print("Estou aqui a dar um check no (%4.2f, %4.2f)"%(x,y))
+        if (x, y) not in self.map_p:
+            self.map_p.append((x, y))
 
-            if (x, y) not in self.map_p:
-                self.map_p.append((x, y))
-
-            print(self.unvisited_coordinates.__str__())
-            for uc in self.unvisited_coordinates.keys():
-                cont = True
-                for c in self.map_p:
-                    if c in self.unvisited_coordinates[uc]:
-                        self.unvisited_coordinates[uc].remove(c)
-                        if self.unvisited_coordinates[uc] == []:
-                            del self.unvisited_coordinates[uc]
-                            cont = False
-                            break
-                if not cont:
-                    break
+        print(self.unvisited_coordinates.__str__())
+        for uc in self.unvisited_coordinates.keys():
+            cont = True
+            for c in self.map_p:
+                if c in self.unvisited_coordinates[uc]:
+                    self.unvisited_coordinates[uc].remove(c)
+                    if self.unvisited_coordinates[uc] == []:
+                        del self.unvisited_coordinates[uc]
+                        cont = False
+                        break
+            if not cont:
+                break
 
 
-            if(self.measures.irSensor[right] > 1.5):
-                if ((x+1, y) not in self.walls):
-                    self.walls.append((x+1, y))
-                    self.labMap[y][x+1] = '|' if (y%2 != 0) else ' '
-            if (self.measures.irSensor[left] > 1.5):
-                if ((x-1, y) not in self.walls):
-                    self.walls.append((x-1, y))
-                    self.labMap[y][x-1] = '|' if (y%2 != 0) else ' '
-            if(self.measures.irSensor[up] > 1.5):
-                if ((x, y+1) not in self.walls):
-                    self.walls.append((x, y+1))
-                    self.labMap[y+1][x] = '-' if (x%2 != 0) else ' '
-            if (self.measures.irSensor[down] > 1.5):
-                if ((x, y-1) not in self.walls):
-                    self.walls.append((x, y-1))
-                    self.labMap[y-1][x] = '-' if (x%2 != 0) else ' '
+        if(self.measures.irSensor[right] > 1.5):
+            if ((x+1, y) not in self.walls):
+                self.walls.append((x+1, y))
+                self.labMap[y][x+1] = '|' if (y%2 != 0) else ' '
+        if (self.measures.irSensor[left] > 1.5):
+            if ((x-1, y) not in self.walls):
+                self.walls.append((x-1, y))
+                self.labMap[y][x-1] = '|' if (y%2 != 0) else ' '
+        if(self.measures.irSensor[up] > 1.5):
+            if ((x, y+1) not in self.walls):
+                self.walls.append((x, y+1))
+                self.labMap[y+1][x] = '-' if (x%2 != 0) else ' '
+        if (self.measures.irSensor[down] > 1.5):
+            if ((x, y-1) not in self.walls):
+                self.walls.append((x, y-1))
+                self.labMap[y-1][x] = '-' if (x%2 != 0) else ' '
+
+        for (x, y) in self.map_p:
+            self.labMap[y][x] = 'X'
+        with open(filename, 'w') as f:
+            self.printMap(f)
 
 class Map():
     def __init__(self, filename):
