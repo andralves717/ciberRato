@@ -283,3 +283,13 @@ dmypy.json
 
 # Cython debug symbols
 cython_debug/
+*.o
+*.so
+*.so.*
+*.log
+moc_*.cpp
+ui_*.h
+*.class
+*.pyc
+*.out
+*.jar
