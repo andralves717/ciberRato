@@ -51,7 +51,7 @@ case $challenge in
         ;;
     4)
         # how to call agent for challenge 4
-        python3 mainRobC4.py -h "$host" -p "$pos" -r "$robname"
+        python3 mainRobC4.py -h "$host" -p "$pos" -r "$robname" -f "$outfile"
         # mv your_mapfile $outfile.map
         # mv your_pathfile $outfile.path
         ;;

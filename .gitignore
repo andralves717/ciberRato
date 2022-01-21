@@ -293,3 +293,6 @@ ui_*.h
 *.pyc
 *.out
 *.jar
+agent/*.map
+agent/*.path
+agent/*.out
