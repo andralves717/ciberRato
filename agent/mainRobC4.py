@@ -30,8 +30,6 @@ class MyRob(CRobLinkAngs):
     map_p = []
 
     last_lp = last_rp = 0
-
-    x_tmp = 27
     out_l_tmp = out_r_tmp = out_tmp = 0
 
     def __init__(self, rob_name, rob_id, angles, host):
@@ -114,18 +112,12 @@ class MyRob(CRobLinkAngs):
                 print(self.rob_name + " exiting")
                 quit()
 
-            print('''
-                State = %s
-                Compass = %0.2f
-                GPS: (X,Y) = (%0.2f, %0.2f)
-                Calc:(X,Y) = (%0.2f, %0.2f)    
-
-                Center sensor= %0.2f
-                Left sensor= %0.2f
-                Right sensor= %0.2f
-                Back sensor= %0.2f'''%(state ,self.measures.compass, self.pos[0], self.pos[1],
-                self.pos_calc[0], self.pos_calc[1], self.measures.irSensor[0], self.measures.irSensor[1],
-                self.measures.irSensor[2],self.measures.irSensor[3]))
+            print('''State = %s  
+                    \rCompass = %8.2f\t\t    GPS\t\t    CALC
+                    \rFront\tLeft\tRight\tBack\t  X\t Y\t  X\t Y
+                    \r%0.2f\t%0.2f\t%0.2f\t%0.2f\t%0.2f, %0.2f\t%0.2f, %0.2f'''%(state ,self.measures.compass, 
+                    self.measures.irSensor[0], self.measures.irSensor[1], self.measures.irSensor[2],self.measures.irSensor[3], 
+                    self.pos[0], self.pos[1], self.pos_calc[0], self.pos_calc[1]))
             
 
             if(self.measures.collision):
@@ -357,34 +349,25 @@ class MyRob(CRobLinkAngs):
                 elif self.pos_calc[1] - self.next_stop[1] > 1:
                     comp = -90
                 if(rot):
+                    rot = True
                     if(self.measures.compass < -120 and comp == 0):
                         next_comp = -90
-                        # self.rotate(-90)
-                        # self.rotate(0)
                     elif(self.measures.compass > 120 and comp == 0):
                         next_comp = 90
-                        # self.rotate(90)
-                        # self.rotate(0)
                     elif(-30 < self.measures.compass < 0 and comp == 180):
                         next_comp = -90
                     elif(0 < self.measures.compass < 30 and comp == 180):
                         next_comp = 90
-                        # self.rotate(90)
-                        # self.rotate(180)
                     elif(65 < self.measures.compass < 125 and comp == -90):
                         next_comp = 0
-                        # self.rotate(0)
-                        # self.rotate(-90)
                     elif(-125 < self.measures.compass < -65 and comp == 90):
-                        next_comp = -90
-                        # self.rotate(0)
-                        # self.rotate(90)
+                        next_comp = 0
                     else:
                         next_comp = comp
+                        rot = False
                         # self.rotate(comp)
                     stopped_state = state
                     state = 'rotate'
-                    rot = False
 
                 elif  (((comp == 0 or comp == 180) and self.next_stop[0] != round(self.pos_calc[0],1)) or\
                     ((comp == 90 or comp == 270 or comp == -90) and self.next_stop[1] != round(self.pos_calc[1],1))):
@@ -432,12 +415,15 @@ class MyRob(CRobLinkAngs):
                         elif y - self.next_stop[1] > 1:
                             comp = -90
 
+                        print("\x1B[1;46mVou dar discover NEW\x1B[0m\tCOMP: "+str(comp)+" atual: "+str(self.measures.compass))
+
                         if((abs(comp - self.measures.compass) > 3 and comp != 180) or (comp == 180 and (self.measures.compass < 177 or self.measures.compass > -177))):
-                            next_comp = -90
+                            next_comp = comp
                             stopped_state = 'discover'
                             state = 'rotate'
                             # self.rotate(comp)#o que fazer neste caso?
-                        state = 'discover'              
+                        else:
+                            state = 'discover'              
                     else:
                         state = 'start_search'
 
@@ -509,7 +495,6 @@ class MyRob(CRobLinkAngs):
                 compass = self.measures.compass
 
         if(compass != comp_d):
-            self.readSensors()
             compass = self.measures.compass%360 if ((comp_d == 270) or (self.measures.compass < -170 and compass_desired == 90) or (compass_desired == 180)) else self.measures.compass
             print("Compass: %0.2f | Compass_desired: %0.2f"%(compass, comp_d))
             l_p = r_p = self.pid(comp_d/360, compass/360)
@@ -546,7 +531,6 @@ class MyRob(CRobLinkAngs):
         self.out_r_tmp = (r_power+self.out_r_tmp)/2
         self.out_tmp = ((l_power+r_power)/2+self.out_tmp)/2
         lin_tmp = (self.out_l_tmp + self.out_r_tmp)/2
-        self.x_tmp = self.x_tmp + self.out_tmp
 
         # if(r == 0):
         #     self.pos_calc = (self.pos_calc[0]+lin_tmp, self.pos_calc[1])
@@ -628,12 +612,13 @@ class MyRob(CRobLinkAngs):
 
 
     def check_map(self):
-        front_comp = 0
-        right = 0
-        up = 1
-        down = 2
-        left = 3
-        if(80 < self.measures.compass < 100):
+        if ( -10 < self.measures.compass < 10):
+            front_comp = 0
+            right = 0
+            up = 1
+            down = 2
+            left = 3
+        elif(80 < self.measures.compass < 100):
             front_comp = 90
             right = 2
             up = 0
@@ -651,6 +636,9 @@ class MyRob(CRobLinkAngs):
             up = 2
             down = 1
             left = 0
+        else:
+            print("NÃO TENHO BUSSULA CORRETA PARA DAR CHECK ;)")
+            return
 
         x = round(self.pos_calc[0])
         y = round(self.pos_calc[1])
@@ -674,7 +662,7 @@ class MyRob(CRobLinkAngs):
                 break
 
 
-        if(self.measures.irSensor[right] > 1.5):
+        if(self.measures.irSensor[right] > 1.3):
             if ((x+1, y) not in self.walls):
                 self.walls.append((x+1, y))
                 self.labMap[y][x+1] = '|' if (y%2 != 0) else ' '
@@ -682,7 +670,7 @@ class MyRob(CRobLinkAngs):
             if ((x+1, y) not in self.walls):
                 self.labMap[y][x+1] = 'X' if (x%2 != 0) else self.labMap[y][x+1]
 
-        if (self.measures.irSensor[left] > 1.5):
+        if (self.measures.irSensor[left] > 1.3):
             if ((x-1, y) not in self.walls):
                 self.walls.append((x-1, y))
                 self.labMap[y][x-1] = '|' if (y%2 != 0) else ' '
@@ -690,7 +678,7 @@ class MyRob(CRobLinkAngs):
             if ((x-1, y) not in self.walls):
                 self.labMap[y][x-1] = 'X' if (x%2 != 0) else self.labMap[y][x-1]
 
-        if(self.measures.irSensor[up] > 1.5):
+        if(self.measures.irSensor[up] > 1.3):
             if ((x, y+1) not in self.walls):
                 self.walls.append((x, y+1))
                 self.labMap[y+1][x] = '-' if (x%2 != 0) else ' '
@@ -698,7 +686,7 @@ class MyRob(CRobLinkAngs):
             if ((x, y+1) not in self.walls):
                 self.labMap[y+1][x] = 'X' if (y%2 != 0) else self.labMap[y+1][x]
 
-        if (self.measures.irSensor[down] > 1.5):
+        if (self.measures.irSensor[down] > 1.3):
             if ((x, y-1) not in self.walls):
                 self.walls.append((x, y-1))
                 self.labMap[y-1][x] = '-' if (x%2 != 0) else ' '
