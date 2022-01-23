@@ -26,6 +26,7 @@ class MyRob(CRobLinkAngs):
     u_m1 = 0
 
     unvisited_coordinates = dict()
+    beacons = dict()
     walls = []
     map_p = []
 
@@ -55,14 +56,19 @@ class MyRob(CRobLinkAngs):
         next_comp = 90
         rot_right = False
         ticks = 0
+        total_time = int(self.simTime)
 
         self.readSensors()
         initial_pos = (27, 13)
         initial_pos_real = (self.measures.x, self.measures.y)
         self.pos = initial_pos
         self.pos_calc = initial_pos
+        moving_to_initial_pos = False
 
         (x, y) = (initial_pos[0], initial_pos[1])
+
+        if( self.measures.ground > -1):
+            self.beacons[(x, y)] = self.measures.ground
 
         if(self.measures.irSensor[3] < 1.2):
             if ((x,y) not in self.unvisited_coordinates.keys()):
@@ -96,14 +102,15 @@ class MyRob(CRobLinkAngs):
             pos_real = (self.measures.x, self.measures.y)
             self.pos = (initial_pos[0] + pos_real[0] - initial_pos_real[0], initial_pos[1] + pos_real[1] - initial_pos_real[1])
 
-            if self.measures.time > 4990:
+            if self.measures.time > total_time - 10:
                 self.finish()
                 print("\x1B[34;3m TIME FINISHED->%d \x1B[0m"%(self.measures.time))
 
             if self.measures.endLed:
                 for (x, y) in self.map_p:
                     self.labMap[y][x] = 'X'
-                self.labMap[initial_pos[1]][initial_pos[0]] = 'I'
+                for b in self.beacons:
+                    self.labMap[b[1]][b[0]] = self.beacons[b]
                 if self.measures.endLed:
                     with open(mapname, 'w') as f:
                         self.printMap(f)
@@ -112,13 +119,16 @@ class MyRob(CRobLinkAngs):
                 print(self.rob_name + " exiting")
                 quit()
 
-            print('''State = %s  
-                    \rCompass = %8.2f\t\t    GPS\t\t    CALC
-                    \rFront\tLeft\tRight\tBack\t  X\t Y\t  X\t Y
-                    \r%0.2f\t%0.2f\t%0.2f\t%0.2f\t%0.2f, %0.2f\t%0.2f, %0.2f'''%(state ,self.measures.compass, 
+            print('''\x1B[34;1mState =\x1B[0m %s\t\x1B[34;1mBeacon =\x1B[0m %s
+                    \r\x1B[34;1mCompass =\x1B[0m %8.2f\t\t    \x1B[34;1mGPS\t\t    CALC
+                    \rFront\tLeft\tRight\tBack\t  X\t Y\t  X\t Y\x1B[0m
+                    \r%0.2f\t%0.2f\t%0.2f\t%0.2f\t%0.2f, %0.2f\t%0.2f, %0.2f'''%(state, str(self.beacons) ,self.measures.compass, 
                     self.measures.irSensor[0], self.measures.irSensor[1], self.measures.irSensor[2],self.measures.irSensor[3], 
                     self.pos[0], self.pos[1], self.pos_calc[0], self.pos_calc[1]))
             
+            if (self.measures.irSensor[0] > 4):
+                self.driveMotors(-0.01, -0.01)
+                continue
 
             if(self.measures.collision):
                 print("\x1B[1;41m COLISÃO \x1B[0m")
@@ -158,8 +168,10 @@ class MyRob(CRobLinkAngs):
                 if self.measures.returningLed==True:
                     self.setReturningLed(False)
                 self.wander()
+            elif state == 'fini':
+                self.finish()
+                print("\x1B[34;3m TIME FINISHED->%d \x1B[0m"%(self.measures.time))
             elif state == 'rotate':
-                print("aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa")
                 self.u_m1 = self.e_m1 = self.e_m2 = 0
                 if (self.rotate(next_comp)):
                     self.move_forward(0)
@@ -309,22 +321,31 @@ class MyRob(CRobLinkAngs):
                         
                         if self.next_stop in self.map_p:
                             state = 'start_search'
+                    self.move_forward(0)
 
             elif state == 'start_search':
                 self.last_lp = self.last_rp = 0
-                self.move_forward(0)
-                dist_min = 1000
+                dist_min = 256
                 print("Unvisited_coords: "+str(self.unvisited_coordinates.keys()))
-                for (uc_x, uc_y) in self.unvisited_coordinates.keys():
-                    dist = (uc_x - self.pos_calc[0]) ** 2 + (uc_y - self.pos_calc[1]) ** 2
-                    if dist < dist_min:
-                        dist_min = dist
-                        coord_near = (uc_x, uc_y)
 
                 x = round(self.pos_calc[0])
                 y = round(self.pos_calc[1])
 
-                path_to_dest = astar(self.map_p, (x, y), coord_near, self.walls)
+                # for (uc_x, uc_y) in self.unvisited_coordinates.keys():
+                #     dist = (uc_x - self.pos_calc[0]) ** 2 + (uc_y - self.pos_calc[1]) ** 2
+                #     if dist < dist_min:
+                #         dist_min = dist
+                #         coord_near = (uc_x, uc_y)
+
+                for (uc_x, uc_y) in self.unvisited_coordinates.keys():
+                    path_tmp = astar(self.map_p, (x, y), (uc_x, uc_y), self.walls)
+                    dist = len(path_tmp)
+                    if dist < dist_min:
+                        dist_min = dist
+                        coord_near = (uc_x, uc_y)
+                        path_to_dest = path_tmp
+
+                # path_to_dest = astar(self.map_p, (x, y), coord_near, self.walls)
                 print ("Path to dest: "+str(path_to_dest))
                 print ("MAP: "+str(self.map_p))
                 print ("Coord near: "+str(coord_near))
@@ -335,6 +356,7 @@ class MyRob(CRobLinkAngs):
                     rot = True
                 elif(path_to_dest == []):
                     state = 'discover_new'
+                self.move_forward(0)
 
                
 
@@ -368,6 +390,7 @@ class MyRob(CRobLinkAngs):
                         # self.rotate(comp)
                     stopped_state = state
                     state = 'rotate'
+                    self.move_forward(0)
 
                 elif  (((comp == 0 or comp == 180) and self.next_stop[0] != round(self.pos_calc[0],1)) or\
                     ((comp == 90 or comp == 270 or comp == -90) and self.next_stop[1] != round(self.pos_calc[1],1))):
@@ -390,15 +413,19 @@ class MyRob(CRobLinkAngs):
                             rot = True
                             self.next_stop = path_to_dest.pop()
                         else:
-                            state = 'discover_new'
+                            if moving_to_initial_pos:
+                                state = 'fini'
+                            else:
+                                state = 'discover_new'
+                    self.move_forward(0)
 
             elif state == 'discover_new':
                 x = round(self.pos_calc[0])
                 y = round(self.pos_calc[1])
 
                 if(self.unvisited_coordinates == {}):
-                    self.finish()
-                    print("\x1B[34;3m TIME FINISHED->%d \x1B[0m"%(self.measures.time))
+                    moving_to_initial_pos = True
+                    state = 'go_to_initial_pos'
                 
                 else:
                     if ((x, y) in self.unvisited_coordinates.keys()):
@@ -415,7 +442,7 @@ class MyRob(CRobLinkAngs):
                         elif y - self.next_stop[1] > 1:
                             comp = -90
 
-                        print("\x1B[1;46mVou dar discover NEW\x1B[0m\tCOMP: "+str(comp)+" atual: "+str(self.measures.compass))
+                        print("\x1B[1;46mVou dar discover NEW\x1B[0m\tCOMP: "+str(comp)+" atual: "+str(self.measures.compass)+"\t NEXT STOP: "+str(self.next_stop))
 
                         if((abs(comp - self.measures.compass) > 3 and comp != 180) or (comp == 180 and (self.measures.compass < 177 or self.measures.compass > -177))):
                             next_comp = comp
@@ -426,6 +453,8 @@ class MyRob(CRobLinkAngs):
                             state = 'discover'              
                     else:
                         state = 'start_search'
+                    
+                self.move_forward(0)
 
             elif state == 'correct_pos':
                 if (self.measures.compass < -170 or self.measures.compass > 170):
@@ -455,6 +484,25 @@ class MyRob(CRobLinkAngs):
                     self.move_forward(u)
                 else:
                     state = 'stop'
+                    self.move_forward(0)
+
+            elif state == 'go_to_initial_pos':
+                self.last_lp = self.last_rp = 0
+
+                x = round(self.pos_calc[0])
+                y = round(self.pos_calc[1])
+
+                path_to_dest = astar(self.map_p, (x, y), initial_pos, self.walls)
+                print ("Path to dest: "+str(path_to_dest))
+                print ("MAP: "+str(self.map_p))
+                print ("walls: "+str(self.walls))
+                if(path_to_dest != [] and path_to_dest != None):
+                    self.next_stop = path_to_dest.pop()
+                    state = 'move_to_next_stop'
+                    rot = True
+                elif(path_to_dest == []):
+                    state = 'fini'
+                self.move_forward(0)
 
 
     def move_forward(self, lin):
@@ -581,7 +629,7 @@ class MyRob(CRobLinkAngs):
         return u
 
     def correct_pos(self):
-        if (self.measures.irSensor[0] >= 1.2):
+        if (self.measures.irSensor[0] >= 1.1):
             print("\x1B[1;46mVou dar check à posição da frente\x1B[0m")
             print("antes: %4.2f,%4.2f"%(self.pos_calc[0],self.pos_calc[1]))
             if(80 < self.measures.compass < 100):
@@ -637,13 +685,16 @@ class MyRob(CRobLinkAngs):
             down = 1
             left = 0
         else:
-            print("NÃO TENHO BUSSULA CORRETA PARA DAR CHECK ;)")
+            print("NÃO TENHO BUSSULA CORRETA PARA DAR CHECK ;(")
             return
 
         x = round(self.pos_calc[0])
         y = round(self.pos_calc[1])
 
-        print("Estou aqui a dar um check no (%4.2f, %4.2f)"%(x,y))
+        if( self.measures.ground > -1):
+            self.beacons[(x, y)] = self.measures.ground
+
+        # print("Estou aqui a dar um check no (%4.2f, %4.2f)"%(x,y))
 
         if (x, y) not in self.map_p and x%2 != 0 and y%2 != 0:
             self.map_p.append((x, y))
@@ -696,8 +747,13 @@ class MyRob(CRobLinkAngs):
 
         for (x, y) in self.map_p:
             self.labMap[y][x] = 'X' if (x%2 != 0 and y%2 != 0) else self.labMap[y][x]
+        for b in self.beacons:
+            self.labMap[b[1]][b[0]] = self.beacons[b]
         with open(mapname, 'w') as f:
             self.printMap(f)
+
+        def best_path(self):
+            return
 
 class Map():
     def __init__(self, filename):
