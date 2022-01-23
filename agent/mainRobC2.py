@@ -3,7 +3,7 @@ import sys
 from croblink import *
 from math import *
 import xml.etree.ElementTree as ET
-from astar import *
+from utils import *
 
 CELLROWS=7
 CELLCOLS=14
