@@ -41,14 +41,6 @@ case $challenge in
         # how to call agent for challenge 2
         python3 mainRobC2.py -h "$host" -p "$pos" -r "$robname" -f "$outfile" # assuming -f is the option for the map
         ;;
-    3)
-        # how to call agent for challenge 3
-        python3 mainRobC3.py -h "$host" -p "$pos" -r "$robname" -f "$outfile" # assuming -f is the option for the path
-        ;;
-    test)
-        # how to call agent for challenge 1
-        python3 mainRob_test.py -h "$host" -p "$pos" -r "$robname"
-        ;;
     4)
         # how to call agent for challenge 4
         python3 mainRobC4.py -h "$host" -p "$pos" -r "$robname" -f "$outfile"
