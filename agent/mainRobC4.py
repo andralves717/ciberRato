@@ -144,7 +144,7 @@ class MyRob(CRobLinkAngs):
                 stopped_state = state
                 state = 'stop'
 
-            if(state != 'rotate' and abs(round(self.pos_calc[0],1) - round(self.pos_calc[0])) <= 0.2 and abs(round(self.pos_calc[1],1) - round(self.pos_calc[1])) <= 0.2):
+            if(state != 'rotate' and abs(round(self.pos_calc[0],2) - round(self.pos_calc[0])) <= 0.2 and abs(round(self.pos_calc[1],2) - round(self.pos_calc[1])) <= 0.2):
                 print("ESTOU AQUI??????????????????//////")
                 self.check_map()
 
